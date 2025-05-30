@@ -1,0 +1,20 @@
+[2025-05-30 08:23:34.495] [info] [58302558] Logger initialized successfully with level: info
+[2025-05-30 08:23:34.495] [info] [58302558] DoH Client starting...
+[2025-05-30 08:23:34.498] [info] [58302558] Querying domain: ap4-tls.agora.io
+[2025-05-30 08:23:34.938] [info] [58302558] Found 5 DNS records for domain: ap4-tls.agora.io
+[2025-05-30 08:23:34.938] [info] [58302558] DoH Client finished successfully
+[2025-05-30 08:24:28.327] [info] [58304356] Logger initialized successfully with level: info
+[2025-05-30 08:24:28.327] [info] [58304356] DoH Client starting...
+[2025-05-30 08:24:28.332] [info] [58304356] Querying domain: ap4-tls.agora.io
+[2025-05-30 08:24:28.592] [info] [58304356] Found 5 DNS records for domain: ap4-tls.agora.io
+[2025-05-30 08:24:28.592] [info] [58304356] DoH Client finished successfully
+[2025-05-30 08:24:36.768] [info] [58304743] Logger initialized successfully with level: info
+[2025-05-30 08:24:36.768] [info] [58304743] DoH Client starting...
+[2025-05-30 08:24:36.774] [info] [58304743] Querying domain: ap4-tls.agora.io
+[2025-05-30 08:24:37.033] [info] [58304743] Found 5 DNS records for domain: ap4-tls.agora.io
+[2025-05-30 08:24:37.033] [info] [58304743] DoH Client finished successfully
+[2025-05-30 08:24:52.308] [info] [58305307] Logger initialized successfully with level: info
+[2025-05-30 08:24:52.308] [info] [58305307] DoH Client starting...
+[2025-05-30 08:24:52.312] [info] [58305307] Querying domain: ap4-tls.agora.io
+[2025-05-30 08:24:55.121] [info] [58305307] Found 5 DNS records for domain: ap4-tls.agora.io
+[2025-05-30 08:24:55.121] [info] [58305307] DoH Client finished successfully
