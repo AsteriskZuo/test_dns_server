@@ -1,0 +1,5 @@
+[2025-06-04 13:54:00.874] [info] [61126150] Logger initialized successfully with level: info
+[2025-06-04 13:54:00.874] [info] [61126150] DoH Client starting...
+[2025-06-04 13:54:00.877] [info] [61126150] Querying domain: ap4-tls.agora.io
+[2025-06-04 13:54:01.851] [info] [61126150] Found 7 DNS records for domain: ap4-tls.agora.io
+[2025-06-04 13:54:01.851] [info] [61126150] DoH Client finished successfully

@@ -8,7 +8,6 @@
 #include <cstring>
 #include <iostream>
 #include <memory>
-#include <nlohmann/json.hpp>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -21,9 +20,6 @@
 #include <sys/socket.h>
 
 #include "tools.hpp"
-
-// 使用nlohmann的JSON库解析Cloudflare的DoH响应
-using json = nlohmann::json;
 
 // 创建 dns server list
 // DoH服务器列表

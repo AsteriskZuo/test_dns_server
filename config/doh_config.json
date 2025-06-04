@@ -1,0 +1,110 @@
+{
+    "default_server": "https://cloudflare-dns.com/dns-query",
+    "timeout": 10,
+    "connect_timeout": 5,
+    "retry_count": 3,
+    "enable_fallback": true,
+    "cache": {
+        "enabled": true,
+        "max_size": 1000,
+        "default_ttl": 300
+    },
+    "log": {
+        "level": "info",
+        "enable_file_logging": true,
+        "log_file_path": "logs/doh_client.log",
+        "enable_console_logging": true
+    },
+    "servers": [
+        {
+            "name": "cloudflare",
+            "url": "https://cloudflare-dns.com/dns-query",
+            "methods": [
+                "get",
+                "post",
+                "json"
+            ],
+            "priority": 1,
+            "timeout": 10,
+            "enabled": true
+        },
+        {
+            "name": "google",
+            "url": "https://dns.google/dns-query",
+            "methods": [
+                "get",
+                "post"
+            ],
+            "priority": 2,
+            "timeout": 10,
+            "enabled": true
+        },
+        {
+            "name": "google_json",
+            "url": "https://dns.google/resolve",
+            "methods": [
+                "json"
+            ],
+            "priority": 3,
+            "timeout": 10,
+            "enabled": true
+        },
+        {
+            "name": "quad9",
+            "url": "https://dns.quad9.net/dns-query",
+            "methods": [
+                "get",
+                "post",
+                "json"
+            ],
+            "priority": 4,
+            "timeout": 10,
+            "enabled": true
+        },
+        {
+            "name": "alibaba",
+            "url": "https://dns.alidns.com/dns-query",
+            "methods": [
+                "get",
+                "post"
+            ],
+            "priority": 5,
+            "timeout": 10,
+            "enabled": true
+        },
+        {
+            "name": "alibaba_json",
+            "url": "http://dns.alidns.com/resolve",
+            "methods": [
+                "json"
+            ],
+            "priority": 6,
+            "timeout": 10,
+            "enabled": true
+        },
+        {
+            "name": "360",
+            "url": "https://doh.360.cn/dns-query",
+            "methods": [
+                "get",
+                "post",
+                "json"
+            ],
+            "priority": 7,
+            "timeout": 10,
+            "enabled": true
+        },
+        {
+            "name": "tencent",
+            "url": "https://doh.pub/dns-query",
+            "methods": [
+                "get",
+                "post",
+                "json"
+            ],
+            "priority": 8,
+            "timeout": 10,
+            "enabled": true
+        }
+    ]
+}

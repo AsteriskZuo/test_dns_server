@@ -1,15 +1,17 @@
 #ifndef TOOLS_HPP
 #define TOOLS_HPP
 
+#include <rapidjson/document.h>
+#include <rapidjson/prettywriter.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/writer.h>
+
 #include <iomanip>
 #include <iostream>
 #include <memory>
-#include <nlohmann/json.hpp>
 #include <sstream>
 #include <string>
 #include <vector>
-
-using json = nlohmann::json;
 
 // DNS记录类型枚举
 enum class DNSRecordType { A = 1, AAAA = 28, CNAME = 5, MX = 15, NS = 2, TXT = 16 };
@@ -278,36 +280,57 @@ inline std::vector<DNSRecord> parse_json_response(const std::string &response) {
     std::cout << "Raw response: " << response << std::endl;  // 输出原始响应
 
     try {
-        auto jsonResponse = json::parse(response);
-        std::cout << "Response: " << jsonResponse.dump(4) << std::endl;  // 输出格式化的JSON响应
+        rapidjson::Document jsonResponse;
+        jsonResponse.Parse(response.c_str());
+
+        // 输出格式化的JSON响应
+        rapidjson::StringBuffer buffer;
+        rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
+        jsonResponse.Accept(writer);
+        std::cout << "Response: " << buffer.GetString() << std::endl;
 
         // 检查是否有Answer字段
-        if (jsonResponse.contains("Answer") && jsonResponse["Answer"].is_array()) {
-            for (const auto &answer : jsonResponse["Answer"]) {
+        if (jsonResponse.HasMember("Answer") && jsonResponse["Answer"].IsArray()) {
+            const auto &answersArray = jsonResponse["Answer"];
+            for (rapidjson::SizeType i = 0; i < answersArray.Size(); i++) {
+                const auto &answer = answersArray[i];
                 DNSRecord record;
-                record.name = answer["name"].get<std::string>();
-                record.type = static_cast<DNSRecordType>(answer["type"].get<int>());
-                record.ttl = answer["TTL"].get<uint32_t>();
+
+                if (answer.HasMember("name") && answer["name"].IsString()) {
+                    record.name = answer["name"].GetString();
+                }
+
+                if (answer.HasMember("type") && answer["type"].IsInt()) {
+                    record.type = static_cast<DNSRecordType>(answer["type"].GetInt());
+                }
+
+                if (answer.HasMember("TTL") && answer["TTL"].IsUint()) {
+                    record.ttl = answer["TTL"].GetUint();
+                }
 
                 // 根据记录类型解析data字段
-                switch (record.type) {
-                    case DNSRecordType::A:
-                        record.data = answer["data"].get<std::string>();
-                        break;
-                    case DNSRecordType::AAAA:
-                        record.data = answer["data"].get<std::string>();
-                        break;
-                    case DNSRecordType::CNAME:
-                    case DNSRecordType::NS:
-                        // 移除末尾的点号(如果有)
-                        record.data = answer["data"].get<std::string>();
-                        if (!record.data.empty() && record.data.back() == '.') {
-                            record.data.pop_back();
-                        }
-                        break;
-                    default:
-                        record.data = answer["data"].dump();
-                        break;
+                if (answer.HasMember("data") && answer["data"].IsString()) {
+                    switch (record.type) {
+                        case DNSRecordType::A:
+                        case DNSRecordType::AAAA:
+                            record.data = answer["data"].GetString();
+                            break;
+                        case DNSRecordType::CNAME:
+                        case DNSRecordType::NS:
+                            // 移除末尾的点号(如果有)
+                            record.data = answer["data"].GetString();
+                            if (!record.data.empty() && record.data.back() == '.') {
+                                record.data.pop_back();
+                            }
+                            break;
+                        default:
+                            // 对于其他类型，将data序列化为字符串
+                            rapidjson::StringBuffer buffer;
+                            rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
+                            answer["data"].Accept(writer);
+                            record.data = buffer.GetString();
+                            break;
+                    }
                 }
 
                 records.push_back(record);

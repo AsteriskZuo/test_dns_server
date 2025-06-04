@@ -13,28 +13,19 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 # 为 VS Code IntelliSense 生成 compile_commands.json
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# 设置 CMake 策略，以便兼容 nlohmann_json 项目
-if(POLICY CMP0025)
-  cmake_policy(SET CMP0025 NEW)
-endif()
-if(POLICY CMP0054)
-  cmake_policy(SET CMP0054 NEW)
-endif()
-
-# 设置最低 CMake 策略版本，解决 nlohmann_json 的兼容性问题
-set(CMAKE_POLICY_DEFAULT_CMP0054 NEW)
-set(CMAKE_POLICY_DEFAULT_CMP0025 NEW)
-# 使用 cmake 命令行传递这个参数
-set(CMAKE_POLICY_VERSION_MINIMUM "3.5" CACHE STRING "")
-
 # 包含 FetchContent 模块
 include(FetchContent)
 
-# 下载并配置 nlohmann/json (使用标头库，不需要构建)
+# 配置 RapidJSON 选项，避免构建示例和测试
+set(RAPIDJSON_BUILD_DOC OFF CACHE BOOL "Build rapidjson documentation." FORCE)
+set(RAPIDJSON_BUILD_EXAMPLES OFF CACHE BOOL "Build rapidjson examples." FORCE)
+set(RAPIDJSON_BUILD_TESTS OFF CACHE BOOL "Build rapidjson tests." FORCE)
+
+# 下载并配置 RapidJSON (使用标头库，不需要构建)
 FetchContent_Declare(
-    nlohmann_json
-    GIT_REPOSITORY https://github.com/nlohmann/json.git
-    GIT_TAG v3.11.2
+    rapidjson
+    GIT_REPOSITORY https://github.com/Tencent/rapidjson.git
+    GIT_TAG v1.1.0
     GIT_SHALLOW TRUE
 )
 
@@ -57,7 +48,15 @@ FetchContent_Declare(
 # 设置 gtest 选项
 set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
 
-FetchContent_MakeAvailable(nlohmann_json spdlog googletest)
+# RapidJSON 是纯头文件库，需要特殊处理
+FetchContent_GetProperties(rapidjson)
+if(NOT rapidjson_POPULATED)
+    FetchContent_Populate(rapidjson)
+    # 不要调用 add_subdirectory，因为我们只需要头文件
+endif()
+
+# 获取其他依赖
+FetchContent_MakeAvailable(spdlog googletest)
 
 # 查找系统安装的 curl
 find_package(CURL REQUIRED)
@@ -74,19 +73,15 @@ FILE(GLOB_RECURSE SOURCE_FILES ${PROJECT_SOURCE_DIR}/src/*.cpp)
 # 添加可执行文件
 add_executable(${PROJECT_NAME} ${SOURCE_FILES})
 
-# 获取 nlohmann_json 的头文件目录
-get_target_property(JSON_INCLUDE_DIRS nlohmann_json::nlohmann_json INTERFACE_INCLUDE_DIRECTORIES)
-
 # 包含目录
 target_include_directories(${PROJECT_NAME} PRIVATE 
     ${CURL_INCLUDE_DIRS}
-    ${JSON_INCLUDE_DIRS}
+    ${rapidjson_SOURCE_DIR}/include
 )
 
 # 链接依赖库
 target_link_libraries(${PROJECT_NAME} 
     PRIVATE 
-    nlohmann_json::nlohmann_json
     spdlog::spdlog
     ${CURL_LIBRARIES}
 )
@@ -102,14 +97,13 @@ if(TEST_SOURCES)
     target_include_directories(${PROJECT_NAME}_tests PRIVATE 
         ${PROJECT_SOURCE_DIR}/src
         ${CURL_INCLUDE_DIRS}
-        ${JSON_INCLUDE_DIRS}
+        ${rapidjson_SOURCE_DIR}/include
     )
     
     target_link_libraries(${PROJECT_NAME}_tests 
         PRIVATE 
         gtest_main
         gmock_main
-        nlohmann_json::nlohmann_json
         spdlog::spdlog
         ${CURL_LIBRARIES}
     )

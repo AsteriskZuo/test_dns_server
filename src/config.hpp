@@ -1,14 +1,15 @@
 #ifndef CONFIG_HPP
 #define CONFIG_HPP
 
-#include <nlohmann/json.hpp>
+#include <rapidjson/document.h>
+#include <rapidjson/writer.h>
+#include <rapidjson/stringbuffer.h>
+#include <rapidjson/prettywriter.h>
 #include <string>
 #include <vector>
 #include <fstream>
 #include <iostream>
 #include <filesystem>
-
-using json = nlohmann::json;
 
 /**
  * @brief DoH服务器配置结构
@@ -46,7 +47,7 @@ struct LogConfig {
  */
 class Config {
 private:
-    json config_data_;
+    rapidjson::Document config_data_;
     std::string config_file_path_;
     bool loaded_ = false;
 
@@ -133,13 +134,13 @@ private:
      * @brief 从JSON加载配置
      * @param j JSON对象
      */
-    void load_from_json(const json& j);
+    void load_from_json(const rapidjson::Document& j);
 
     /**
      * @brief 转换为JSON
      * @return JSON对象
      */
-    json to_json() const;
+    rapidjson::Document to_json() const;
 };
 
 // 实现
@@ -173,10 +174,20 @@ bool Config::load() {
             std::cerr << "Failed to open config file: " << config_file_path_ << std::endl;
             return false;
         }
-
-        json j;
-        file >> j;
-        load_from_json(j);
+        
+        // 将文件内容读入字符串
+        std::string json_str((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
+        
+        // 解析JSON
+        rapidjson::Document doc;
+        doc.Parse(json_str.c_str());
+        
+        if (doc.HasParseError()) {
+            std::cerr << "Failed to parse config JSON: " << doc.GetParseError() << std::endl;
+            return false;
+        }
+        
+        load_from_json(doc);
         
         loaded_ = true;
         return true;
@@ -201,8 +212,15 @@ bool Config::save() {
             return false;
         }
 
-        json j = to_json();
-        file << j.dump(4); // 4 spaces indentation
+        rapidjson::Document doc = to_json();
+        
+        // 将JSON格式化为字符串
+        rapidjson::StringBuffer buffer;
+        rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
+        doc.Accept(writer);
+        
+        // 写入文件
+        file << buffer.GetString();
         return true;
         
     } catch (const std::exception& e) {
@@ -301,89 +319,147 @@ void Config::init_defaults() {
     };
 }
 
-void Config::load_from_json(const json& j) {
-    if (j.contains("default_server")) {
-        default_server = j["default_server"];
+void Config::load_from_json(const rapidjson::Document& j) {
+    if (j.HasMember("default_server") && j["default_server"].IsString()) {
+        default_server = j["default_server"].GetString();
     }
-    if (j.contains("timeout")) {
-        timeout = j["timeout"];
+    if (j.HasMember("timeout") && j["timeout"].IsInt()) {
+        timeout = j["timeout"].GetInt();
     }
-    if (j.contains("connect_timeout")) {
-        connect_timeout = j["connect_timeout"];
+    if (j.HasMember("connect_timeout") && j["connect_timeout"].IsInt()) {
+        connect_timeout = j["connect_timeout"].GetInt();
     }
-    if (j.contains("retry_count")) {
-        retry_count = j["retry_count"];
+    if (j.HasMember("retry_count") && j["retry_count"].IsInt()) {
+        retry_count = j["retry_count"].GetInt();
     }
-    if (j.contains("enable_fallback")) {
-        enable_fallback = j["enable_fallback"];
+    if (j.HasMember("enable_fallback") && j["enable_fallback"].IsBool()) {
+        enable_fallback = j["enable_fallback"].GetBool();
     }
     
     // 加载缓存配置
-    if (j.contains("cache")) {
+    if (j.HasMember("cache") && j["cache"].IsObject()) {
         const auto& cache_json = j["cache"];
-        if (cache_json.contains("enabled")) cache.enabled = cache_json["enabled"];
-        if (cache_json.contains("max_size")) cache.max_size = cache_json["max_size"];
-        if (cache_json.contains("default_ttl")) cache.default_ttl = cache_json["default_ttl"];
+        if (cache_json.HasMember("enabled") && cache_json["enabled"].IsBool()) {
+            cache.enabled = cache_json["enabled"].GetBool();
+        }
+        if (cache_json.HasMember("max_size") && cache_json["max_size"].IsInt()) {
+            cache.max_size = cache_json["max_size"].GetInt();
+        }
+        if (cache_json.HasMember("default_ttl") && cache_json["default_ttl"].IsInt()) {
+            cache.default_ttl = cache_json["default_ttl"].GetInt();
+        }
     }
     
     // 加载日志配置
-    if (j.contains("log")) {
+    if (j.HasMember("log") && j["log"].IsObject()) {
         const auto& log_json = j["log"];
-        if (log_json.contains("level")) log.level = log_json["level"];
-        if (log_json.contains("enable_file_logging")) log.enable_file_logging = log_json["enable_file_logging"];
-        if (log_json.contains("log_file_path")) log.log_file_path = log_json["log_file_path"];
-        if (log_json.contains("enable_console_logging")) log.enable_console_logging = log_json["enable_console_logging"];
+        if (log_json.HasMember("level") && log_json["level"].IsString()) {
+            log.level = log_json["level"].GetString();
+        }
+        if (log_json.HasMember("enable_file_logging") && log_json["enable_file_logging"].IsBool()) {
+            log.enable_file_logging = log_json["enable_file_logging"].GetBool();
+        }
+        if (log_json.HasMember("log_file_path") && log_json["log_file_path"].IsString()) {
+            log.log_file_path = log_json["log_file_path"].GetString();
+        }
+        if (log_json.HasMember("enable_console_logging") && log_json["enable_console_logging"].IsBool()) {
+            log.enable_console_logging = log_json["enable_console_logging"].GetBool();
+        }
     }
     
     // 加载服务器配置
-    if (j.contains("servers")) {
+    if (j.HasMember("servers") && j["servers"].IsArray()) {
         servers.clear();
-        for (const auto& server_json : j["servers"]) {
+        const auto& server_array = j["servers"];
+        for (rapidjson::SizeType i = 0; i < server_array.Size(); i++) {
+            const auto& server_json = server_array[i];
             DoHServerConfig server;
-            if (server_json.contains("name")) server.name = server_json["name"];
-            if (server_json.contains("url")) server.url = server_json["url"];
-            if (server_json.contains("methods")) server.methods = server_json["methods"];
-            if (server_json.contains("priority")) server.priority = server_json["priority"];
-            if (server_json.contains("timeout")) server.timeout = server_json["timeout"];
-            if (server_json.contains("enabled")) server.enabled = server_json["enabled"];
+            
+            if (server_json.HasMember("name") && server_json["name"].IsString()) {
+                server.name = server_json["name"].GetString();
+            }
+            if (server_json.HasMember("url") && server_json["url"].IsString()) {
+                server.url = server_json["url"].GetString();
+            }
+            if (server_json.HasMember("methods") && server_json["methods"].IsArray()) {
+                const auto& methods_array = server_json["methods"];
+                server.methods.clear();
+                for (rapidjson::SizeType j = 0; j < methods_array.Size(); j++) {
+                    if (methods_array[j].IsString()) {
+                        server.methods.push_back(methods_array[j].GetString());
+                    }
+                }
+            }
+            if (server_json.HasMember("priority") && server_json["priority"].IsInt()) {
+                server.priority = server_json["priority"].GetInt();
+            }
+            if (server_json.HasMember("timeout") && server_json["timeout"].IsInt()) {
+                server.timeout = server_json["timeout"].GetInt();
+            }
+            if (server_json.HasMember("enabled") && server_json["enabled"].IsBool()) {
+                server.enabled = server_json["enabled"].GetBool();
+            }
+            
             servers.push_back(server);
         }
     }
 }
 
-json Config::to_json() const {
-    json j;
-    j["default_server"] = default_server;
-    j["timeout"] = timeout;
-    j["connect_timeout"] = connect_timeout;
-    j["retry_count"] = retry_count;
-    j["enable_fallback"] = enable_fallback;
+rapidjson::Document Config::to_json() const {
+    rapidjson::Document doc;
+    doc.SetObject();
+    
+    // 使用文档的分配器
+    rapidjson::Document::AllocatorType& allocator = doc.GetAllocator();
+    
+    // 基本设置
+    doc.AddMember("default_server", rapidjson::StringRef(default_server.c_str()), allocator);
+    doc.AddMember("timeout", timeout, allocator);
+    doc.AddMember("connect_timeout", connect_timeout, allocator);
+    doc.AddMember("retry_count", retry_count, allocator);
+    doc.AddMember("enable_fallback", enable_fallback, allocator);
     
     // 缓存配置
-    j["cache"]["enabled"] = cache.enabled;
-    j["cache"]["max_size"] = cache.max_size;
-    j["cache"]["default_ttl"] = cache.default_ttl;
+    rapidjson::Value cache_obj(rapidjson::kObjectType);
+    cache_obj.AddMember("enabled", cache.enabled, allocator);
+    cache_obj.AddMember("max_size", cache.max_size, allocator);
+    cache_obj.AddMember("default_ttl", cache.default_ttl, allocator);
+    doc.AddMember("cache", cache_obj, allocator);
     
     // 日志配置
-    j["log"]["level"] = log.level;
-    j["log"]["enable_file_logging"] = log.enable_file_logging;
-    j["log"]["log_file_path"] = log.log_file_path;
-    j["log"]["enable_console_logging"] = log.enable_console_logging;
+    rapidjson::Value log_obj(rapidjson::kObjectType);
+    log_obj.AddMember("level", rapidjson::StringRef(log.level.c_str()), allocator);
+    log_obj.AddMember("enable_file_logging", log.enable_file_logging, allocator);
+    log_obj.AddMember("log_file_path", rapidjson::StringRef(log.log_file_path.c_str()), allocator);
+    log_obj.AddMember("enable_console_logging", log.enable_console_logging, allocator);
+    doc.AddMember("log", log_obj, allocator);
     
     // 服务器配置
-    j["servers"] = json::array();
+    rapidjson::Value servers_array(rapidjson::kArrayType);
+    
     for (const auto& server : servers) {
-        json server_json;
-        server_json["name"] = server.name;
-        server_json["url"] = server.url;
-        server_json["methods"] = server.methods;
-        server_json["priority"] = server.priority;
-        server_json["timeout"] = server.timeout;
-        server_json["enabled"] = server.enabled;
-        j["servers"].push_back(server_json);
+        rapidjson::Value server_obj(rapidjson::kObjectType);
+        
+        server_obj.AddMember("name", rapidjson::StringRef(server.name.c_str()), allocator);
+        server_obj.AddMember("url", rapidjson::StringRef(server.url.c_str()), allocator);
+        
+        // 方法列表
+        rapidjson::Value methods_array(rapidjson::kArrayType);
+        for (const auto& method : server.methods) {
+            methods_array.PushBack(rapidjson::StringRef(method.c_str()), allocator);
+        }
+        server_obj.AddMember("methods", methods_array, allocator);
+        
+        server_obj.AddMember("priority", server.priority, allocator);
+        server_obj.AddMember("timeout", server.timeout, allocator);
+        server_obj.AddMember("enabled", server.enabled, allocator);
+        
+        servers_array.PushBack(server_obj, allocator);
     }
     
-    return j;
+    doc.AddMember("servers", servers_array, allocator);
+    
+    return doc;
 }
 
 #endif // CONFIG_HPP 
