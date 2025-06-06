@@ -68,6 +68,7 @@
     "*.beta": "cpp",
     "condition_variable": "cpp",
     "__availability": "cpp",
-    "version": "cpp"
+    "version": "cpp",
+    "__config": "cpp"
   }
 }
