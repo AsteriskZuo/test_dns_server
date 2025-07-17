@@ -42,6 +42,28 @@ if (系统DNS解析成功?) then (是)
   note right
     解析结果不缓存，直接使用
   end note
+
+  if (使用IP连接服务器失败?) then (是)
+    note right
+      通过connect+provision判断
+    end note
+    :失败连接服务器;
+
+    if (最近一次doh请求成功?) then (是)
+      :不尝试 doh 解析，
+      走原有业务逻辑;
+    else (否)
+      :尝试 doh 解析;
+      
+      note right
+        连接到 使用DoH解析
+      end note
+      detach
+    endif
+  else (否)
+    :成功连接服务器;
+  endif
+
 else (否)
   :检查错误码;
   
