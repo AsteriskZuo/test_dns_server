@@ -552,7 +552,7 @@ class DohInfoManager {
 
 **并发细节讨论**
 
-// todo: 方案选择讨论点
+// todo: 方案选择讨论点: done
 
 1. google、cloudflare、ali、tencent 同时并发请求
 2. 22 串行和并发混用，先 google（海外）、ali（国内） 并发，失败后，再 cloudflare（海外） 和 tencent（国内） 并发
@@ -562,6 +562,10 @@ class DohInfoManager {
    1. 非常节省资源，针对性强，成功率高
    2. 如果判断地里位置不准确，或者考虑 vpn 等情况，那么可能根本无法获取 服务器 IP 地址
 4. 根据发布区域，选择不同的 doh 服务，例如：国内使用 ali，国外使用 google
+5. 根据发布区域，国内 阿里和腾讯，国外 谷歌和cloudflare ✅
+   1. 先主后备，并发+串行
+   2. 并发1：主要服务器
+   3. 失败后，并发2：备用服务器
 
 ## 流程图
 
