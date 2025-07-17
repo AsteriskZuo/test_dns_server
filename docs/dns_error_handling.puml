@@ -1,0 +1,90 @@
+@startuml DNS Error Handling
+
+'========== STYLE SETTINGS ==========
+skinparam backgroundColor white
+skinparam handwritten false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+skinparam roundcorner 8
+skinparam arrowColor #444444
+skinparam shadowing false
+
+skinparam activity {
+    BackgroundColor #FEFEFE
+    BorderColor #3498DB
+    FontStyle bold
+    StartColor #2ECC71
+    EndColor #E74C3C
+    DiamondBackgroundColor #FEFEFE
+    DiamondBorderColor #3498DB
+}
+
+skinparam note {
+    BackgroundColor #FFF9C4
+    BorderColor #F9A825
+}
+
+title DNS 错误处理流程图
+
+'========== START OF DIAGRAM ==========
+start
+
+:系统DNS解析失败;
+
+:获取错误码;
+
+if (当前平台?) then (Windows)
+  if (错误码?) then (WSAHOST_NOT_FOUND)
+    :DNS无法解析域名;
+    :标记为可能遭受DNS劫持/污染;
+    :使用DoH重试;
+  else if (WSATRY_AGAIN) then
+    :DNS服务器临时性故障;
+    :使用DoH重试;
+  else if (WSANO_RECOVERY) then
+    :DNS服务器严重错误;
+    :使用DoH重试;
+  else if (WSAEINVAL) then
+    :参数错误(代码bug);
+    :返回错误，不重试;
+  else if (WSA_NOT_ENOUGH_MEMORY) then
+    :内存不足;
+    :返回错误，不重试;
+  else if (WSAEAFNOSUPPORT) then
+    :系统不支持某地址族;
+    :返回错误，不重试;
+  else if (WSANO_DATA) then
+    :域名存在但无对应记录;
+    :返回错误，不重试;
+  endif
+else (Linux/Unix)
+  if (错误码?) then (EAI_NONAME)
+    :DNS无法解析域名;
+    :标记为可能遭受DNS劫持/污染;
+    :使用DoH重试;
+  else if (EAI_AGAIN) then
+    :DNS服务器临时性故障;
+    :使用DoH重试;
+  else if (EAI_FAIL) then
+    :DNS服务器严重错误;
+    :使用DoH重试;
+  else if (EAI_MEMORY) then
+    :内存不足;
+    :返回错误，不重试;
+  else if (EAI_NODATA) then
+    :域名存在但无对应记录;
+    :返回错误，不重试;
+  endif
+endif
+
+:记录错误与处理策略;
+
+if (是否进行DoH重试?) then (是)
+  :调用DoH解析流程;
+else (否)
+  :返回DNS解析失败结果;
+endif
+
+stop
+
+@enduml

@@ -1,0 +1,112 @@
+@startuml DNS Resolution Flow
+
+'========== STYLE SETTINGS ==========
+skinparam backgroundColor white
+skinparam handwritten false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+skinparam roundcorner 8
+skinparam arrowColor #444444
+skinparam shadowing false
+
+skinparam activity {
+    BackgroundColor #FEFEFE
+    BorderColor #3498DB
+    FontStyle bold
+    StartColor #2ECC71
+    EndColor #E74C3C
+    DiamondBackgroundColor #FEFEFE
+    DiamondBorderColor #3498DB
+}
+
+skinparam note {
+    BackgroundColor #FFF9C4
+    BorderColor #F9A825
+}
+
+title DNS 解析流程图
+
+'========== START OF DIAGRAM ==========
+start
+
+:客户端需要解析域名;
+
+:使用系统DNS解析方法 (getaddrinfo);
+note right
+  Windows/Linux/Unix平台
+  都使用getaddrinfo方法
+end note
+
+if (系统DNS解析成功?) then (是)
+  :返回解析结果;
+  note right
+    解析结果不缓存，直接使用
+  end note
+else (否)
+  :检查错误码;
+  
+  if (是否为可重试错误?) then (是)
+    note right
+      Windows: WSAHOST_NOT_FOUND, WSATRY_AGAIN, WSANO_RECOVERY
+      Linux: EAI_NONAME, EAI_AGAIN, EAI_FAIL
+    end note
+    
+    :准备使用DoH解析;
+    
+    :获取DoH服务信息;
+    note right
+      检查是否有服务器下发的
+      加密DoH配置信息
+      如无，使用默认配置
+    end note
+    
+    :选择并发策略;
+    note right
+      并发方案选择:
+      1. 全部并发
+      2. 先Google+阿里，后Cloudflare+腾讯
+      3. 根据地理位置选择
+      4. 根据发布区域选择
+    end note
+    
+    :发起DoH并发请求;
+    note right
+      使用curl发送HTTP请求
+      超时时间3.5秒
+    end note
+    
+    if (DoH解析成功?) then (是)
+      :返回DoH解析结果;
+      
+      if (是否记录系统DNS失败?) then (是)
+        :记录系统DNS失败日志;
+      else (否)
+      endif
+      
+    else (否)
+      :所有DoH请求都失败;
+      
+      :记录DNS完全解析失败;
+      
+      :返回域名解析失败;
+      note right
+        可能原因:
+        1. 网络问题
+        2. DNS攻击+防火墙
+      end note
+    endif
+  else (否)
+    note right
+      忽略的错误码:
+      Windows: WSAEINVAL, WSA_NOT_ENOUGH_MEMORY,
+      WSAEAFNOSUPPORT, WSANO_DATA
+      Linux: EAI_MEMORY, EAI_NODATA
+    end note
+    
+    :返回域名解析失败;
+  endif
+endif
+
+stop
+
+@enduml

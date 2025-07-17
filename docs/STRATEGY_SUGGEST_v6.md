@@ -13,7 +13,7 @@
 5. doh 基本配置：ip 地址、域名信息 放在代码中
 6. doh 敏感信息：token、key 等，由服务器下发，非明文加密保存在文件中。
 
-### 系统和 doh 都失败的情况
+### 系统 和 doh 都解析失败的情况
 
 **原因分析**
 
@@ -397,12 +397,6 @@ enum class DNSRecordType {
     A = 1,      // IPv4地址记录
     AAAA = 28,  // IPv6地址记录
     CNAME = 5,  // 别名记录
-    MX = 15,    // 邮件交换记录
-    TXT = 16,   // 文本记录
-    NS = 2,     // 名称服务器记录
-    PTR = 12,   // 指针记录
-    SOA = 6,    // 授权开始记录
-    SRV = 33    // 服务记录
 };
 
 // DNS解析结果
@@ -535,6 +529,18 @@ class DohInfoManager {
 3. 可以预先判断地理位置，国外 google，失败，再 cloudflare，国内 ali，失败，再 tencent。
    1. 非常节省资源，针对性强，成功率高
    2. 如果判断地里位置不准确，或者考虑 vpn 等情况，那么可能根本无法获取 服务器 IP 地址
+4. 根据发布区域，选择不同的 doh 服务，例如：国内使用 ali，国外使用 google
+
+
+## 流程图
+
+以下是根据前述设计方案制定的 DNS 解析流程图：
+
+1. [DNS解析主流程图](dns_resolution_flow.puml) - 展示了从系统DNS解析到DoH解析的完整流程
+2. [DoH解析详细流程图](doh_resolution_detail.puml) - 展示了DoH解析的详细实现和并发策略
+3. [DNS错误处理流程图](dns_error_handling.puml) - 展示了系统DNS解析错误码的处理逻辑
+
+使用方法：使用支持PlantUML的工具（如VS Code的PlantUML插件、在线PlantUML渲染器等）打开这些PUML文件即可查看流程图。
 
 # 厂商
 

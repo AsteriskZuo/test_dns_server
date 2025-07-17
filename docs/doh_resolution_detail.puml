@@ -1,0 +1,120 @@
+@startuml DoH Resolution Process
+
+'========== STYLE SETTINGS ==========
+skinparam backgroundColor white
+skinparam handwritten false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 13
+skinparam roundcorner 8
+skinparam arrowColor #444444
+skinparam shadowing false
+
+skinparam activity {
+    BackgroundColor #FEFEFE
+    BorderColor #3498DB
+    FontStyle bold
+    StartColor #2ECC71
+    EndColor #E74C3C
+    DiamondBackgroundColor #FEFEFE
+    DiamondBorderColor #3498DB
+}
+
+skinparam note {
+    BackgroundColor #FFF9C4
+    BorderColor #F9A825
+}
+
+title DoH 解析详细流程图
+
+'========== START OF DIAGRAM ==========
+start
+
+:准备DoH请求参数;
+
+:检查配置文件完整性;
+note right
+  检查格式版本、魔数
+  校验CRC32校验和
+end note
+
+if (配置文件有效?) then (是)
+  :解密DoH配置信息;
+  note right
+    使用AES-256-GCM解密
+    并使用自定义Base64解码
+  end note
+else (否)
+  :使用内置默认DoH配置;
+endif
+
+:决定DoH请求策略;
+
+if (选择哪种并发策略?) then (全部并发)
+  fork
+    :请求Google DoH;
+  fork again
+    :请求Cloudflare DoH;
+  fork again
+    :请求阿里DoH;
+  fork again
+    :请求腾讯DoH;
+  end fork
+  :选择最快返回的有效结果;
+else if (先主后备) then
+  fork
+    :请求Google DoH (海外主要);
+  fork again
+    :请求阿里DoH (国内主要);
+  end fork
+  
+  if (主要DoH成功?) then (是)
+    :使用最快返回结果;
+  else (否)
+    fork
+      :请求Cloudflare DoH (海外备用);
+    fork again
+      :请求腾讯DoH (国内备用);
+    end fork
+    :选择最快返回的有效结果;
+  endif
+else if (地理位置) then
+  if (是海外用户?) then (是)
+    :请求Google DoH;
+    if (解析失败?) then (是)
+      :请求Cloudflare DoH;
+    endif
+  else (否)
+    :请求阿里DoH;
+    if (解析失败?) then (是)
+      :请求腾讯DoH;
+    endif
+  endif
+else (发布区域)
+  if (在国外发布?) then (是)
+    :请求Google DoH;
+    if (解析失败?) then (是)
+      :请求Cloudflare DoH;
+    endif
+  else (否)
+    :请求阿里DoH;
+    if (解析失败?) then (是)
+      :请求腾讯DoH;
+    endif
+  endif
+endif
+
+:处理DoH返回结果;
+note right
+  解析JSON格式
+  提取IP地址记录
+end note
+
+if (解析结果有效?) then (是)
+  :返回解析成功和IP地址;
+else (否)
+  :记录DoH解析失败;
+endif
+
+stop
+
+@enduml
