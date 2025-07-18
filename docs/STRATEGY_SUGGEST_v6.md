@@ -439,41 +439,123 @@ struct DNSRecord {
     uint32_t ttl;           // 生存时间（秒）
 };
 
+enum class DNSErrorCode {
+    SUCCESS = 0,
+    SYSTEM_DNS_FAILED = 1,
+    DOH_DNS_FAILED = 2,
+    NETWORK_ERROR = 3,
+    TIMEOUT = 4,
+    INVALID_DOMAIN = 5
+};
+
+using FailCallback = std::function<void(const DNSErrorCode code, const std::string& errorMsg)>;
+
 // DNS 解析器
+// 使用 系统时间戳 和 doh时间戳 管理状态
+// 使用 缓存列表 减少 dns 解析的实际请求
+// ttl 默认 300秒，不使用系统解析或者doh解析返回的ttl
+// 指定 doh_duration 为 系统失败，doh成功，使用doh的有效时间窗口
 class SmartDNSResolver {
   public:
 
     // 基础查询接口
-    std::vector<DNSRecord> resolve(const std::string& domain, DNSRecordType type = DNSRecordType::A,
-                                   std::chrono::milliseconds timeout = std::chrono::milliseconds(3500));
+    // 解析失败结果为空
+    // 错误信息通过回调返回
+    std::vector<DNSRecord> resolve(const std::string& domain, DNSRecordType type = DNSRecordType::A, std::chrono::milliseconds timeout = std::chrono::milliseconds(3500), const FailCallback& callback = [](const int,const std::string&) {}) {
+      // 判断 是否有缓存，缓存在ttl内，直接返回缓存结果
+      // 判断是否使用 系统dns解析，查看 _system_dns_parse_fail_timestamp 值
+      // _system_dns_parse_fail_timestamp == 0 或者 _system_dns_parse_fail_timestamp + doh_duration * 1000 > 当前时间戳
+      // 其他情况使用 doh 解析 dns
+      // 系统解析和doh解析的结果保存在缓存中，在应用的生命周期内有效，不做持久化。
+    }
+
+
+  private:
+    // 系统解析
+    std::vector<DNSRecord> system_resolve(const std::string& domain, DNSRecordType type = DNSRecordType::A,
+                                   std::chrono::milliseconds timeout = std::chrono::milliseconds(3500), const FailCallback& callback = [](const int,const std::string&) {});
+
+    // doh 解析
+    std::vector<DNSRecord> doh_resolve(const std::string& domain, DNSRecordType type = DNSRecordType::A, std::chrono::milliseconds timeout = std::chrono::milliseconds(3500), const FailCallback& callback = [](const int,const std::string&) {}) {
+      // 获取本地 doh信息，至少会有2个doh服务提供商
+      // 如果有自建服务器，优先使用自建服务 请求 dns 解析（自建可能是未来要做的事情）
+      // 如果没有自建，则先并发 2个服务商的主要服务器 请求 dns 解析
+      // 如果失败，再次使用 2个服务商的备用服务器 请求 dns 解析
+      // 如果其中任何一个解析成功，使用先返回的解析结果，并且缓存
+      // 如果没有任何一个解析成功，返回 空结果
+    }
+
+
+  private:
+    std::string makeCacheKey(const std::string& domain, DNSRecordType type) {
+        return domain + ":" + std::to_string(static_cast<int>(type));
+    }
+
+  private:
+    // 系统dns解析失败的时间戳，在此时间点后 doh_duration 内，都将尝试doh, 0表示没有失败
+    // 该时间戳会被持久化，下次继续使用
+    // doh_duration 之后，继续尝试，如果成功，将它设置为 0，不成功，更新它的值
+    // 单位毫秒
+    // 键格式: "domain:type", 如 "example.com:1" (A记录), "example.com:28" (AAAA记录)
+    std::map<std::string, long long> _system_dns_parse_fail_timestamp_list;
+    // 所有 doh dns 解析失败的时间戳，在此后 ttl之内，不在尝试, 0表示没有失败
+    // 在ttl内，将使用缓存
+    // 单位毫秒
+    // 键格式: "domain:type", 如 "example.com:1" (A记录), "example.com:28" (AAAA记录)
+    std::map<std::string, long long> _doh_dns_parse_fail_timestamp_list;
+    // 解析成功的时间戳，缓存有效期 为 该时间戳 + ttl
+    // 系统或者doh解析任何一个成功，将它设置为当前时间戳
+    // 单位毫秒
+    // 键格式: "domain:type", 如 "example.com:1" (A记录), "example.com:28" (AAAA记录)
+    std::map<std::string, long long> _dns_parse_success_timestamp_list;
+    // 域名解析缓存结果，在ttl内有效，否则将继续 doh请求，更新该缓存
+    // 键格式: "domain:type", 如 "example.com:1" (A记录), "example.com:28" (AAAA记录)
+    std::map<std::string, std::vector<DNSRecord>> _tmp_record_list;
+
+    const long long ttl = 300; // 5分钟
+    const long long doh_duration = 60 * 60 * 24; // 24小时
 };
 ```
 
 ```cpp
-struct DohInfo {
-  std::string manufacturer;
-  std::string ip1;
-  std::string ip2;
+struct ManufacturerDetailInfo {
+  std::vector<std::string> ip_list;
   std::string domain;
+  std::string path;
+  std::map<std::string, std::string> params;
 }
 
-struct AliDohInfo : public DohInfo {
-  std::string account_id;
-  std::string access_key_id;
-  std::string access_key_secret;
+struct ManufacturerInfo {
+  std::string manufacturer;
+  std::string use_area;
+  bool self_build;
+  ManufacturerDetailInfo free_info;
+  ManufacturerDetailInfo vip_info;
 }
 
-struct TencentDohInfo : public DohInfo {
-  std::string token;
+struct DohInfo {
+  long long timestamp; // 时间戳，只要本地时间戳小，就更新
+  std::vector<ManufacturerInfo> info_list;
 }
 
 // 敏感信息管理
+// 参考 本文件 敏感信息保存 章节
 class DohInfoManager {
   public:
     // 保存服务器下发信息
+    // 文件保存失败可能的原因：目标文件不存在，文件存在没有写入权限
+    // 文件不存在 应该自动创建，创建失败，应该删除原来的文件，删除失败报错，返回 false
+    // 文件存在但是没有写入权限，应该删除原来的文件，删除失败报错，返回 false
+    // 信息来自 源码常量
+    // 信息可能来自 服务器下发
+    // 信息更新 服务器下发信息 合并到 本地版本中
     bool save(const std::vector<DohInfo>& infos);
 
     // 获取本地信息
+    // 不可能失败：获取方式有两种：1.本地文件，2.源码，就算本地文件失败，源码也不会失败
+    // 文件获取失败的可能原因：本地没有该文件、文件解析失败
+    // 文件解析失败的可能原因：文件被篡改、文件没有读取权限
+    // 优先级: 文件版本优先，文件失败，在使用源码版本信息
     std::vector<DohInfo> get();
 
     // 移除本地信息: 文件被修改、无法打开等极端情况
