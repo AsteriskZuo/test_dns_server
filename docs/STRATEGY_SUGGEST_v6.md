@@ -562,10 +562,164 @@ class DohInfoManager {
    1. 非常节省资源，针对性强，成功率高
    2. 如果判断地里位置不准确，或者考虑 vpn 等情况，那么可能根本无法获取 服务器 IP 地址
 4. 根据发布区域，选择不同的 doh 服务，例如：国内使用 ali，国外使用 google
-5. 根据发布区域，国内 阿里和腾讯，国外 谷歌和cloudflare ✅
+5. 根据发布区域，国内 阿里和腾讯，国外 谷歌和 cloudflare ✅
    1. 先主后备，并发+串行
-   2. 并发1：主要服务器
-   3. 失败后，并发2：备用服务器
+   2. 并发 1：主要服务器
+   3. 失败后，并发 2：备用服务器
+
+### 客户端和服务器约定
+
+- version: 版本号，版本号大于本地版本号，将替换本地版本。
+- timestamp: 该版本的时间戳
+- list: doh 服务提供商，包括自建
+
+  - ali
+  - tencent
+  - google
+  - cloudflare
+  - easemob-china: 自建国内
+  - easemob-global: 自建国外
+
+- name: doh 服务商名称
+- use_area: 使用区域，如果服务可以做到根据客户端的区域下发，这个字段不需要 // todo:
+- self_build: 是否是自建 doh 服务，如果有，那么，优先使用，保持了未来的可扩展性
+- free: 免费 doh
+- vip: 收费 doh
+
+- ips: doh 服务地址列表
+- domain: doh 地址
+- path: 资源路径，保证服务商发生变化，可以及时更新
+- params: 请求需要的参数
+- examples: 这个是文档实例，不出现在 正式 格式中
+
+```json
+{
+  "version": "1.0.0",
+  "timestamp": 1752820068,
+  "list": [
+    {
+      "name": "ali",
+      "use_area": "china",
+      "self_build": false,
+      "free": {
+        "ips": ["223.5.5.5", "223.6.6.6"],
+        "domain": "dns.alidns.com",
+        "path": "/resolve",
+        "params": [{ "name": "string" }, { "type": "string" }],
+        "examples": [
+          "https://dns.alidns.com/resolve?name={name}&type={A}",
+          "https://233.5.5.5/resolve?name={name}&type={AAAA}"
+        ]
+      },
+      "vip": {
+        "ips": ["223.5.5.5", "223.6.6.6"],
+        "domain": "dns.alidns.com",
+        "path": "/resolve",
+        "params": [
+          { "name": "string" },
+          { "type": "string" },
+          { "uid": "string" },
+          { "ak": "string" },
+          { "key": "string" }
+        ],
+        "examples": [
+          "https://dns.alidns.com/resolve?name={name}&type={A}&uid={uid}&ak={ak}&key={key}",
+          "https://233.5.5.5/resolve?name={name}&type={AAAA}&uid={uid}&ak={ak}&key={key}"
+        ]
+      }
+    },
+    {
+      "name": "tencent",
+      "use_area": "china",
+      "self_build": false,
+      "free": {
+        "ips": [],
+        "domain": "doh.pub",
+        "path": "/dns-query",
+        "params": [{ "name": "string" }, { "type": "string" }],
+        "examples": [
+          "https://doh.pub/dns-query?name={name}&type={A}",
+          "https://doh.pub/dns-query?name={name}&type={AAAA}"
+        ]
+      },
+      "vip": {
+        "ips": ["119.29.29.99", "119.29.29.98"],
+        "domain": "",
+        "path": "/d",
+        "params": [{ "name": "string" }, { "token": "string" }],
+        "examples": [
+          "https://119.29.29.99/d?name={name}&token={token}",
+          "https://119.29.29.98/d?name={name}&token={token}"
+        ]
+      }
+    },
+    {
+      "name": "google",
+      "use_area": "global",
+      "self_build": false,
+      "free": {
+        "ips": ["8.8.8.8", "8.8.4.4"],
+        "domain": "dns.google",
+        "path": "/resolve",
+        "params": [{ "name": "string" }, { "type": "string" }],
+        "examples": [
+          "https://dns.google/resolve?name={name}&type={A}",
+          "https://8.8.8.8/resolve?name={name}&type={AAAA}"
+        ]
+      }
+    },
+    {
+      "name": "cloudflare",
+      "use_area": "global",
+      "self_build": false,
+      "free": {
+        "ips": ["1.1.1.1", "1.0.0.1"],
+        "domain": "cloudflare-dns.com",
+        "path": "/dns-query",
+        "params": [{ "name": "string" }, { "type": "string" }],
+        "examples": [
+          "https://cloudflare-dns.com/dns-query?name={name}&type={A}",
+          "https://1.1.1.1/dns-query?name={name}&type={AAAA}"
+        ]
+      }
+    },
+    {
+      "name": "easemob-china",
+      "use_area": "china",
+      "self_build": true,
+      "free": {
+        "ips": ["7.7.7.7", "7.7.7.8"],
+        "domain": "easemob-dns.com",
+        "path": "/dns-query",
+        "params": [{ "name": "string" }, { "type": "string" }],
+        "examples": [
+          "https://easemob-dns.com/dns-query?name={name}&type={A}",
+          "https://7.7.7.7/dns-query?name={name}&type={AAAA}"
+        ]
+      }
+    },
+    {
+      "name": "easemob-global",
+      "use_area": "global",
+      "self_build": true,
+      "free": {
+        "ips": ["7.7.7.7", "7.7.7.8"],
+        "domain": "easemob-dns.com",
+        "path": "/dns-query",
+        "params": [
+          { "name": "string" },
+          { "type": "string" },
+          { "token": "string" }
+        ],
+        "examples": [
+          "https://easemob-dns.com/dns-query?name={name}&type={A}&token={token}",
+          "https://7.7.7.7/dns-query?name={name}&type={AAAA}&token={token}"
+        ]
+      }
+    }
+  ]
+}
+```
 
 ## 流程图
 
