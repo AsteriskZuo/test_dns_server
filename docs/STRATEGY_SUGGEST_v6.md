@@ -487,7 +487,7 @@ class SmartDNSResolver {
 
 
   private:
-    std::string makeCacheKey(const std::string& domain, DNSRecordType type) {
+    std::string make_cache_key(const std::string& domain, DNSRecordType type) {
         return domain + ":" + std::to_string(static_cast<int>(type));
     }
 
